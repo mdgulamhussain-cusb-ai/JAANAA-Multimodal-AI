@@ -1,0 +1,106 @@
+!pip install streamlit speechrecognition pyttsx3 pydub pillow python-docx PyPDF2
+!pip install pyaudio
+
+class ChatbotConfig:
+    def __init__(self, name="jaanaa"):
+        self.name = name
+
+    def change_name(self, new_name):
+        self.name = new_name
+
+import speech_recognition as sr
+import pyttsx3
+from PyPDF2 import PdfReader
+from docx import Document
+
+# Text to Speech
+engine = pyttsx3.init()
+
+def speak(text):
+    engine.say(text)
+    engine.runAndWait()
+
+# Speech to Text
+def listen():
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        audio = recognizer.listen(source)
+        try:
+            return recognizer.recognize_google(audio)
+        except:
+            return "Sorry, I could not understand."
+
+# File Readers
+def read_pdf(file):
+    reader = PdfReader(file)
+    return " ".join(page.extract_text() for page in reader.pages)
+
+def read_docx(file):
+    doc = Document(file)
+    return " ".join(p.text for p in doc.paragraphs)
+
+import streamlit as st
+from chatbot_config import ChatbotConfig
+from utils import speak, listen, read_pdf, read_docx
+
+# App config
+st.set_page_config(page_title="JAANAA Chatbot", layout="centered")
+
+# Session state
+if "bot" not in st.session_state:
+    st.session_state.bot = ChatbotConfig()
+
+bot = st.session_state.bot
+
+st.title(f" {bot.name} – Multimodal Chatbot")
+
+# Change chatbot name
+with st.sidebar:
+    st.header("Settings")
+    new_name = st.text_input("Change chatbot name")
+    if st.button("Update Name") and new_name:
+        bot.change_name(new_name)
+        st.success(f"Chatbot name changed to {new_name}")
+
+# Chat section
+st.subheader("Chat")
+
+user_text = st.text_input("Type your message")
+
+if st.button("Send"):
+    st.write(f"**You:** {user_text}")
+    response = f"I am {bot.name}. You said: {user_text}"
+    st.write(f"**{bot.name}:** {response}")
+    speak(response)
+
+# Voice input
+st.subheader("Voice Input")
+if st.button("Speak"):
+    voice_text = listen()
+    st.write(f"**You (Voice):** {voice_text}")
+    response = f"I heard you say: {voice_text}"
+    st.write(f"**{bot.name}:** {response}")
+    speak(response)
+
+# File upload
+st.subheader("Upload Files (Image, Video, PDF, DOCX, PPT)")
+uploaded_file = st.file_uploader(
+    "Upload any file",
+    type=["png", "jpg", "jpeg", "mp4", "pdf", "docx", "pptx", "txt"]
+)
+
+if uploaded_file:
+    st.success(f"Uploaded: {uploaded_file.name}")
+
+    if uploaded_file.type == "application/pdf":
+        text = read_pdf(uploaded_file)
+        st.text_area("PDF Content", text[:2000])
+
+    elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        text = read_docx(uploaded_file)
+        st.text_area("DOCX Content", text[:2000])
+
+    else:
+        st.info("File uploaded successfully. Processing can be added later.")
+
+   
